@@ -815,11 +815,9 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 			logger::ERROR(ss.str());
 		}
 
-		auto buffer = make_shared<Buffer>(bytes);
-		memcpy(buffer->data,
-			points->data_u8 + candidate.indexStart * bpp,
-			candidate.numPoints * bpp
-		);
+		auto buffer = make_shared<WeakBuffer>();
+		buffer->size = bytes;
+		buffer->setData(points->data_u8 + candidate.indexStart * bpp);
 
 		realization->points = buffer;
 
@@ -929,11 +927,10 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 
 				logger::WARN(msg.str());
 
-				shared_ptr<Buffer> distinctBuffer = make_shared<Buffer>(distinct.size() * bpp);
 
-				for(int64_t i = 0; i < distinct.size(); i++){
-					distinctBuffer->write(buffer->data_u8 + i * bpp, bpp);
-				}
+				auto distinctBuffer = make_shared<WeakBuffer>();
+				distinctBuffer->size = distinct.size() * bpp;
+				distinctBuffer->setData(buffer->data_u8 + distinct.size()*bpp);
 
 				subject->points = distinctBuffer;
 				subject->numPoints = distinct.size();

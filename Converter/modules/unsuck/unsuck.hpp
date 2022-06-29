@@ -155,9 +155,28 @@ struct Buffer {
 		this->size = size;
 	}
 
-	~Buffer() {
-		free(data);
+	void setData(void* data) {
+		this->data = data;
+		this->data_u8 = reinterpret_cast<uint8_t*>(this->data);
+		this->data_u16 = reinterpret_cast<uint16_t*>(this->data);
+		this->data_u32 = reinterpret_cast<uint32_t*>(this->data);
+		this->data_u64 = reinterpret_cast<uint64_t*>(this->data);
+		this->data_i8 = reinterpret_cast<int8_t*>(this->data);
+		this->data_i16 = reinterpret_cast<int16_t*>(this->data);
+		this->data_i32 = reinterpret_cast<int32_t*>(this->data);
+		this->data_i64 = reinterpret_cast<int64_t*>(this->data);
+		this->data_f32 = reinterpret_cast<float*>(this->data);
+		this->data_f64 = reinterpret_cast<double*>(this->data);
+		this->data_char = reinterpret_cast<char*>(this->data);
 	}
+
+	~Buffer() {
+		if(this->data != nullptr) {
+		free(data);
+
+		}
+	}
+
 
 	template<class T>
 	void set(T value, int64_t position) {
@@ -172,7 +191,27 @@ struct Buffer {
 
 };
 
-
+struct WeakBuffer : public Buffer{
+	
+	void setData(void* data) {
+		this->data = data;
+		this->data_u8 = reinterpret_cast<uint8_t*>(this->data);
+		this->data_u16 = reinterpret_cast<uint16_t*>(this->data);
+		this->data_u32 = reinterpret_cast<uint32_t*>(this->data);
+		this->data_u64 = reinterpret_cast<uint64_t*>(this->data);
+		this->data_i8 = reinterpret_cast<int8_t*>(this->data);
+		this->data_i16 = reinterpret_cast<int16_t*>(this->data);
+		this->data_i32 = reinterpret_cast<int32_t*>(this->data);
+		this->data_i64 = reinterpret_cast<int64_t*>(this->data);
+		this->data_f32 = reinterpret_cast<float*>(this->data);
+		this->data_f64 = reinterpret_cast<double*>(this->data);
+		this->data_char = reinterpret_cast<char*>(this->data);
+	}
+	
+	~WeakBuffer() {
+		this->data = nullptr;
+	}
+};
 
 inline double now() {
 	auto now = std::chrono::high_resolution_clock::now();
