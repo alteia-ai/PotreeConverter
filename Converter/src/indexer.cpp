@@ -931,7 +931,7 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 				shared_ptr<Buffer> distinctBuffer = make_shared<Buffer>(distinct.size() * bpp);
 
 				for(int64_t i = 0; i < distinct.size(); i++){
-					distinctBuffer->write(buffer->data_u8 + i * bpp, bpp);
+					distinctBuffer->write(buffer->data_u8 + distinct[i] * bpp, bpp);
 				}
 
 				subject->points = distinctBuffer;
