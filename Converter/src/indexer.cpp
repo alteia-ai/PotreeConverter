@@ -14,6 +14,34 @@
 using std::unique_lock;
 
 namespace indexer{
+	struct PointKey	{
+		int32_t x;
+		int32_t y;
+		int32_t z;
+
+	bool operator==(const PointKey &other) const{ 
+		return (x == other.x
+				&& y == other.y
+				&& z == other.z);
+	}
+	};
+}
+namespace std {
+
+  template <>
+  struct hash<indexer::PointKey>
+  {
+    std::size_t operator()(const indexer::PointKey& k) const
+    {
+      return ((hash<int32_t>()(k.x)
+               ^ (hash<int32_t>()(k.y) << 1)) >> 1)
+               ^ (hash<int32_t>()(k.z) << 1);
+    }
+  };
+
+}
+
+namespace indexer{
 
 	struct Point {
 		double x;
@@ -846,10 +874,10 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 		if (subject->numPoints == numPoints) {
 			// the subsplit has the same number of points than the input -> ERROR
 
-			unordered_map<string, int> counters;
+			unordered_map<PointKey, int> counters;
 
 			auto bpp = attributes.bytes;
-
+			vector<int64_t> distinct;
 			for (int64_t i = 0; i < numPoints; i++) {
 
 				int64_t sourceOffset = i * bpp;
@@ -859,11 +887,11 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 				memcpy(&Y, buffer->data_u8 + sourceOffset + 4, 4);
 				memcpy(&Z, buffer->data_u8 + sourceOffset + 8, 4);
 
-				stringstream ss;
-				ss << X << ", " << Y << ", " << Z;
-
-				string key = ss.str();
-				counters[key]++;
+				PointKey key({X,Y,Z});
+				int numberFounds = counters[key]++;
+				if(numberFounds == 0) {
+						distinct.push_back(i);
+				}
 			}
 
 			int64_t numPointsInBox = subject->numPoints;
@@ -884,39 +912,6 @@ void buildHierarchy(Indexer* indexer, Node* node, shared_ptr<Buffer> points, int
 			} else {
 
 				// remove the duplicates, then try again
-
-				vector<int64_t> distinct;
-				unordered_map<string, int> handled;
-
-				auto contains = [](auto map, auto key) {
-					return map.find(key) != map.end();
-				};
-
-				for (int64_t i = 0; i < numPoints; i++) {
-
-					int64_t sourceOffset = i * bpp;
-
-					int32_t X, Y, Z;
-					memcpy(&X, buffer->data_u8 + sourceOffset + 0, 4);
-					memcpy(&Y, buffer->data_u8 + sourceOffset + 4, 4);
-					memcpy(&Z, buffer->data_u8 + sourceOffset + 8, 4);
-
-					stringstream ss;
-					ss << X << ", " << Y << ", " << Z;
-
-					string key = ss.str();
-					
-					if (contains(counters, key)) {
-						if (!contains(handled, key)) {
-							distinct.push_back(i);
-							handled[key] = true;
-						}
-					} else {
-						distinct.push_back(i);
-					}
-
-				}
-
 				//cout << "#distinct: " << distinct.size() << endl;
 
 				stringstream msg;
