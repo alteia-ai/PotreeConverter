@@ -304,7 +304,10 @@ string Indexer::createMetadata(Options options, State& state, Hierarchy hierarch
 
 		for (int i = 0; i < values.size(); i++) {
 
-			ss << d(values[i]);
+			if (values[i] == Infinity || values[i] == std::numeric_limits<double>::quiet_NaN())
+				ss << "null";
+			else
+				ss << d(values[i]);
 
 			if (i < values.size() - 1) {
 				ss << ", ";

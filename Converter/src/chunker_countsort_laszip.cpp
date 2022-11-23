@@ -979,17 +979,27 @@ namespace chunker_countsort_laszip {
 			jsAttribute["type"] = getAttributeTypename(attribute.type);
 
 			if (attribute.numElements == 1) {
-				jsAttribute["min"] = vector<double>{ attribute.min.x };
-				jsAttribute["max"] = vector<double>{ attribute.max.x };
+				double min_x = attribute.min.x == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.x;
+				double max_x = attribute.max.x == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.x;
+				jsAttribute["min"] = vector<double>{ min_x };
+				jsAttribute["max"] = vector<double>{ max_x };
 			} else if (attribute.numElements == 2) {
-				jsAttribute["min"] = vector<double>{ attribute.min.x, attribute.min.y};
-				jsAttribute["max"] = vector<double>{ attribute.max.x, attribute.max.y};
+				double min_x = attribute.min.x == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.x;
+				double max_x = attribute.max.x == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.x;
+				double min_y = attribute.min.y == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.y;
+				double max_y = attribute.max.y == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.y;
+				jsAttribute["min"] = vector<double>{ min_x, min_y};
+				jsAttribute["max"] = vector<double>{ max_x, max_y};
 			} else if (attribute.numElements == 3) {
-				jsAttribute["min"] = vector<double>{ attribute.min.x, attribute.min.y, attribute.min.z };
-				jsAttribute["max"] = vector<double>{ attribute.max.x, attribute.max.y, attribute.max.z };
+				double min_x = attribute.min.x == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.x;
+				double max_x = attribute.max.x == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.x;
+				double min_y = attribute.min.y == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.y;
+				double max_y = attribute.max.y == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.y;
+				double min_z = attribute.min.z == Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.min.z;
+				double max_z = attribute.max.z == -Infinity ? std::numeric_limits<double>::quiet_NaN() : attribute.max.z;
+				jsAttribute["min"] = vector<double>{ min_x, min_y, min_z};
+				jsAttribute["max"] = vector<double>{ max_x, max_y, max_z};
 			}
-			
-
 
 			js["attributes"].push_back(jsAttribute);
 		}
