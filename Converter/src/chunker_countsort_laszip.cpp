@@ -228,8 +228,8 @@ namespace chunker_countsort_laszip {
 					inBox &= 0 <= Z && Z <= cubeSizeZ;
 
 					if (!inBox) {
-                   				double dCoordinates[3];
-					        laszip_get_coordinates(laszip_reader, dCoordinates);
+						double dCoordinates[3];
+						laszip_get_coordinates(laszip_reader, dCoordinates);
 						stringstream ss;
 						ss << "encountered point outside bounding box." << endl;
 						ss << "box.min: " << min.toString() << endl;
