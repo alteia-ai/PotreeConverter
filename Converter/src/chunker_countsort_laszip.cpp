@@ -199,42 +199,42 @@ namespace chunker_countsort_laszip {
 			double zFactor = dGridSize/cubeSizeZ;
 			
 			laszip_point_struct* coordinates;
+			laszip_header_struct* header;
 
+			laszip_get_header_pointer(laszip_reader, &header);
 			auto posOffset = outputAttributes.posOffset;
 
 			for (int i = 0; i < numToRead; i++) {
 				int64_t pointOffset = i * bpp;
-
+				coordinates = nullptr;
 				laszip_read_point(laszip_reader);
 				laszip_get_point_pointer(laszip_reader, &coordinates);
 
 				{
 
-					int32_t X = coordinates->X;
-					int32_t Y = coordinates->Y;
-					int32_t Z = coordinates->Z;
+					int32_t pointX = coordinates->X;
+					int32_t pointY = coordinates->Y;
+					int32_t pointZ = coordinates->Z;
+					
+					int32_t xOffset = int32_t(round((header->x_offset - min.x)/posScale.x));
+					int32_t yOffset = int32_t(round((header->y_offset - min.y)/posScale.y));
+					int32_t zOffset = int32_t(round((header->z_offset - min.z)/posScale.z));
+					int32_t X = pointX + xOffset;
+					int32_t Y = pointY + yOffset;
+					int32_t Z = pointZ + zOffset;
 
-					double roundedX = round(min.x/posScale.x);
-					double roundedY = round(min.y/posScale.y);
-					double roundedZ = round(min.z/posScale.z);
-					int32_t minX = int32_t(roundedX);
-					int32_t minY = int32_t(roundedY);
-					int32_t minZ = int32_t(roundedZ);
-
-					int32_t xOffset = (X - minX);
-					int32_t yOffset = (Y - minY);
-					int32_t zOffset = (Z - minZ);
-
-					bool inBox = 0 <= xOffset && xOffset <= cubeSizeX;
-					inBox &= 0 <= yOffset && yOffset <= cubeSizeY;
-					inBox &= 0 <= zOffset && zOffset <= cubeSizeZ;
+					bool inBox = 0 <= X && X <= cubeSizeX;
+					inBox &= 0 <= Y && Y <= cubeSizeY;
+					inBox &= 0 <= Z && Z <= cubeSizeZ;
 
 					if (!inBox) {
+                   				double dCoordinates[3];
+					        laszip_get_coordinates(laszip_reader, dCoordinates);
 						stringstream ss;
 						ss << "encountered point outside bounding box." << endl;
 						ss << "box.min: " << min.toString() << endl;
 						ss << "box.max: " << max.toString() << endl;
-						ss << "point: " << Vector3(X*posScale.x, Y*posScale.y, Z*posScale.z).toString() << endl;
+						ss << "point: " << Vector3(dCoordinates[0],dCoordinates[1],dCoordinates[2]).toString() << endl;
 						ss << "file: " << path << endl;
 						ss << "PotreeConverter requires a valid bounding box to operate." << endl;
 						ss << "Please try to repair the bounding box, e.g. using lasinfo with the -repair_bb argument." << endl;
@@ -243,9 +243,9 @@ namespace chunker_countsort_laszip {
 						exit(123);
 					}
 
-					int64_t ix = std::min(int64_t(double(xOffset)*xFactor), gridSize - 1);
-					int64_t iy = std::min(int64_t(double(yOffset)*yFactor), gridSize - 1);
-					int64_t iz = std::min(int64_t(double(zOffset)*zFactor), gridSize - 1);
+					int64_t ix = std::min(int64_t(double(X)*xFactor), gridSize - 1);
+					int64_t iy = std::min(int64_t(double(Y)*yFactor), gridSize - 1);
+					int64_t iz = std::min(int64_t(double(Z)*zFactor), gridSize - 1);
 
 					int64_t index = ix + iy * gridSize + iz * gridSize * gridSize;
 
