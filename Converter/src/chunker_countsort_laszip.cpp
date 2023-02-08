@@ -684,6 +684,8 @@ namespace chunker_countsort_laszip {
 			auto* lut = task->lut;
 			auto bpp = outputAttributes.bytes;
 			auto numBytes = bpp * batchSize;
+			vector<int64_t> indexes(batchSize, 0);
+			vector<int64_t> counts(nodes.size(), 0);
 			Vector3 scale = task->scale;
 			Vector3 offset = task->offset;
 			Vector3 min = task->min;
@@ -728,6 +730,15 @@ namespace chunker_countsort_laszip {
 
 				laszip_BOOL request_reader = 1;
 				laszip_BOOL is_compressed = iEndsWith(path, ".laz") ? 1 : 0;
+
+				int32_t cubeSize = int32_t(ceil((max - min).max()));
+				int32_t cubeSizeX = int32_t(ceil(cubeSize/scale.x));
+				int32_t cubeSizeY = int32_t(ceil(cubeSize/scale.y));
+				int32_t cubeSizeZ = int32_t(ceil(cubeSize/scale.z));
+				double dGridSize = double(gridSize);
+				double xFactor = dGridSize/cubeSizeX;
+				double yFactor = dGridSize/cubeSizeY;
+				double zFactor = dGridSize/cubeSizeZ;
 
 				laszip_create(&laszip_reader);
 				laszip_request_compatibility_mode(laszip_reader, request_reader);
@@ -774,6 +785,41 @@ namespace chunker_countsort_laszip {
 					for (auto& handler : attributeHandlers) {
 						handler(offset);
 					}
+					{
+						
+						laszip_point_struct* coordinates;
+						laszip_get_point_pointer(laszip_reader, &coordinates);
+						int32_t pointX = coordinates->X;
+						int32_t pointY = coordinates->Y;
+						int32_t pointZ = coordinates->Z;
+						
+						int32_t xOffset = int32_t(round((header->x_offset - min.x)/scale.x));
+						int32_t yOffset = int32_t(round((header->y_offset - min.y)/scale.y));
+						int32_t zOffset = int32_t(round((header->z_offset - min.z)/scale.z));
+						int32_t X = pointX + xOffset;
+						int32_t Y = pointY + yOffset;
+						int32_t Z = pointZ + zOffset;
+
+						int64_t ix = std::min(int64_t(double(X)*xFactor), gridSize - 1);
+						int64_t iy = std::min(int64_t(double(Y)*yFactor), gridSize - 1);
+						int64_t iz = std::min(int64_t(double(Z)*zFactor), gridSize - 1);
+
+						int64_t index = ix + iy * gridSize + iz * gridSize * gridSize;
+
+						indexes[i] = index;
+						auto nodeIndex = grid[index];
+
+						if (nodeIndex == -1) {
+							stringstream ss;
+							ss << "point to node lookup failed, no node found." << endl;
+							logger::ERROR(ss.str());
+
+							exit(123);
+						}
+						
+						counts[nodeIndex]++;
+
+					}
 
 				}
 
@@ -782,74 +828,7 @@ namespace chunker_countsort_laszip {
 				laszip_close_reader(laszip_reader);
 				laszip_destroy(laszip_reader);
 			}
-
-			double cubeSize = (max - min).max();
-			Vector3 size = { cubeSize, cubeSize, cubeSize };
-			max = min + cubeSize;
-
-			double dGridSize = double(gridSize);
-
-			auto toIndex = [data, &outputAttributes, scale, gridSize, dGridSize, size, min](int64_t pointOffset) {
-				int32_t* xyz = reinterpret_cast<int32_t*>(&data[0] + pointOffset);
-
-				int32_t X = xyz[0];
-				int32_t Y = xyz[1];
-				int32_t Z = xyz[2];
-
-				double ux = (double(X) * scale.x + outputAttributes.posOffset.x - min.x) / size.x;
-				double uy = (double(Y) * scale.y + outputAttributes.posOffset.y - min.y) / size.y;
-				double uz = (double(Z) * scale.z + outputAttributes.posOffset.z - min.z) / size.z;
-
-				int64_t ix = int64_t(std::min(dGridSize * ux, dGridSize - 1.0));
-				int64_t iy = int64_t(std::min(dGridSize * uy, dGridSize - 1.0));
-				int64_t iz = int64_t(std::min(dGridSize * uz, dGridSize - 1.0));
-
-				int64_t index = ix + iy * gridSize + iz * gridSize * gridSize;
-
-				return index;
-			};
 			
-			// COUNT POINTS PER BUCKET
-			vector<int64_t> counts(nodes.size(), 0);
-			for (int64_t i = 0; i < batchSize; i++) {
-				auto index = toIndex(i * bpp);
-
-				auto nodeIndex = grid[index];
-
-				// ERROR
-				if (nodeIndex == -1) {
-
-					int32_t* xyz = reinterpret_cast<int32_t*>(&data[0] + i * bpp);
-
-					auto x = xyz[0];
-					auto y = xyz[1];
-					auto z = xyz[2];
-
-					double ux = (xyz[0] * scale.x + outputAttributes.posOffset.x) / size.x;
-					double uy = (xyz[1] * scale.y + outputAttributes.posOffset.y) / size.y;
-					double uz = (xyz[2] * scale.z + outputAttributes.posOffset.z) / size.z;
-
-					int64_t ix = int64_t(std::min(dGridSize * ux, dGridSize - 1.0));
-					int64_t iy = int64_t(std::min(dGridSize * uy, dGridSize - 1.0));
-					int64_t iz = int64_t(std::min(dGridSize * uz, dGridSize - 1.0));
-
-					int64_t index = ix + iy * gridSize + iz * gridSize * gridSize;
-
-					stringstream ss;
-					ss << "point to node lookup failed, no node found." << endl;
-					ss << "point: " << formatNumber(x, 3) << ", " << formatNumber(y, 3) << ", " << formatNumber(z, 3) << endl;
-					ss << "3d grid index: " << ix << ", " << iy << ", " << iz << endl;
-					ss << "1d grid index: " << index << endl;
-
-
-					logger::ERROR(ss.str());
-
-					exit(123);
-				}
-
-				counts[nodeIndex]++;
-			}
-
 			// ALLOCATE BUCKETS
 			vector<shared_ptr<Buffer>> buckets(nodes.size(), nullptr);
 			for (int i = 0; i < nodes.size(); i++) {
@@ -864,8 +843,7 @@ namespace chunker_countsort_laszip {
 			for (int64_t i = 0; i < batchSize; i++) {
 				int64_t pointOffset = i * bpp;
 
-				auto index = toIndex(pointOffset);
-
+				auto index = indexes[i];
 				auto nodeIndex = grid[index];
 				auto& node = nodes[nodeIndex];
 
